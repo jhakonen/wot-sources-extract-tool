@@ -1,0 +1,44 @@
+#!/usr/bin/python
+
+import os
+import shutil
+import tempfile
+import time
+
+from wotsources import as_decompile, py_decompile, pkg_extract
+
+SRC_DIR = "/input"
+DEST_DIR = "/output"
+
+DECOMPILERS = [as_decompile, py_decompile]
+
+os.chmod = lambda x,y: None
+
+def execute():
+    # Use /tmp ramdisk as work directory
+    work_prefix = tempfile.mkdtemp()
+    extract_prefix = os.path.join(work_prefix, "extract")
+
+    for file in pkg_extract.iterfiles(os.path.join(SRC_DIR, "res", "packages")):
+        for decompiler in DECOMPILERS:
+            if not decompiler.will_convert(file.filename):
+                continue
+            file.extract(extract_prefix)
+            for converted in decompiler.convert(extract_prefix, file.filename):
+                dest_path = os.path.join(DEST_DIR, converted)
+                ensuredirs(os.path.dirname(dest_path))
+                shutil.move(os.path.join(extract_prefix, converted), os.path.join(DEST_DIR, converted))
+            shutil.rmtree(extract_prefix)
+    shutil.rmtree(work_prefix)
+
+def ensuredirs(path):
+    if not os.path.isdir(path):
+        os.makedirs(path)
+
+if __name__ == '__main__':
+    start_time = time.time()
+    try:
+        execute()
+    finally:
+        elapsed_time = time.time() - start_time
+        print time.strftime("Execution took: %H h %M min %S sec", time.gmtime(elapsed_time))
